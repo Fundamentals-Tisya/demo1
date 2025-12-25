@@ -1,0 +1,164 @@
+---
+title: "R Notebook"
+output:
+  html_document:
+    df_print: paged
+---
+
+# Starting fresh
+```{r}
+#removes all previously existing objects from the R environment
+rm(list = ls())
+```
+
+# Opening a file from a url (file in Excel), name it 'fragility23'
+```{r}
+#stores the URL of the excel file as a character string in the object "linkGit"
+linkGit="https://github.com/Fundamentals-Tisya/demo1/raw/refs/heads/main/FSI-2023-DOWNLOAD.xlsx"
+
+#loads the rio package so its functions can be used
+library(rio) 
+
+#downloads excel file from url, imports into R as a data frame "fragility23"
+fragility23=rio::import(file = linkGit)
+```
+
+
+# First Operations
+```{r}
+#displays all column names in data frame
+names(x = fragility23)
+```
+
+
+## Check the data types in df
+```{r}
+#shows structure of data frame, including data types for each column
+str(object = fragility23)
+
+#displays first 10 rows of data frame
+head(x = fragility23,10)
+
+#displays last 10 rows of data frame
+tail(fragility23,10)
+```
+
+
+# Transformative Manipulation
+
+## Keep some columns: 
+##Country, Total,
+## S1: Demographic Pressures,
+## P1: State Legitimacy,
+## E2: Economic Inequality
+## into object 'frag23_sub'
+```{r}
+#searches column names of "fragility123", prints those that match listed variables
+grep(pattern = "Country|S1|P1|E2|Total",x = names(fragility23),fixed = F,value = T) 
+
+#stores names of selected columns into object "keep"
+keep=grep("Country|S1|P1|E2|Total",names(fragility23),fixed = F,value = T)
+
+#creates a new data frame "frag23_sub" containing selected columns
+frag23_sub=fragility23[,keep]
+
+#renames columns 3-5 to simpler variable reference names
+names(frag23_sub)[3:5]=c("S1","E2", "P1")
+```
+
+
+## Get me the top ten best countries on the column 'E2' from 'frag23_sub'
+```{r}
+#sorts data frame in descending order, displays top 10 rows
+tail(frag23_sub[order(x=-frag23_sub$E2),],10) #option1
+
+#sorts data frame to display only the country name for the top 10 rows
+tail(frag23_sub[order(x=-frag23_sub$E2),'Country'],10) #option2
+```
+
+
+## Give the statistical description of "frag23_sub"
+```{r}
+#give min, max, mean, median, quartiles, for each column
+summary(object = frag23_sub)
+```
+
+## The value of the worst quartile of Total
+```{r}
+#calculates 75th percentile of total score, ignores missing values
+q3_Total=quantile(x = frag23_sub$Total, 
+                  probs = 0.75, 
+                  na.rm = TRUE)
+```
+
+
+## Show correlations between "S1","E2", "P1"
+```{r}
+#computes correlation matrix for S1, E2, P1 (excluding country and total columns)
+cor(x=frag23_sub[,-c(1,2)]) #no 'Country', no "Total'
+```
+
+
+## Show correlations between "S1","E2", "P1" and their "significance"
+```{r}
+#loads package for correlation analysis
+library(corrtable)
+
+#computes correlations and reports statistical significance for S1, E2, and P1
+corrtable::correlation_matrix(df = frag23_sub[,-c(1,2)])
+```
+
+
+## Regress P1 and E2 on S1
+```{r}
+#fits linear regression model predicting S1 using P1 and E2, outputs to console
+lm(S1~P1+E2,data=frag23_sub)
+
+#stores fitted regression model in the object 'model'
+model <- lm(S1 ~ P1 + E2, data = frag23_sub)
+
+#displays detailed regression results (coefficients, standard errors, significance levels)
+summary(model)
+```
+
+
+# Some plotting
+```{r}
+#creates histogram showing distribution of values in the P1 variable using base R
+hist(x = frag23_sub$P1) #base r
+```
+
+
+## Visual correlation between S1 and E2
+```{r}
+#creates scatter plot to visually examine relationship between S1 (x-axis) and E2 (y-axis)
+plot(x=frag23_sub$S1, y=frag23_sub$E2)
+```
+
+
+## Color points if country is on the worst quartile of Total
+```{r}
+#creates logical vector indicating which countries fall in the worst (top 25%) quartile of Total
+frag23_sub$Total>=q3_Total
+
+#adds new column to data frame that labels countries in the worst quartile as TRUE and others as FALSE
+frag23_sub$worstQt=frag23_sub$Total>=q3_Total
+
+#plots S1 vs E2, coloring points based on whether a country is in the worst Total quartile
+plot(frag23_sub$S1, 
+     frag23_sub$E2,pch=20,
+     col = as.factor(frag23_sub$worstQt))
+
+```
+
+
+# Visual of the regression P1 and E2 on S1
+```{r}
+#loads 'sjPlot' package for visualizing regression models
+library(sjPlot)
+
+##creates visualization ofregression model coefficients and their confidence intervals
+plot_models(model)
+```
+
+
